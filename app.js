@@ -248,6 +248,7 @@ function drawNow(now){
     ctx.stroke();ctx.restore();
   });
 
+  const labels=[];
   nodes.forEach(n=>{
     if(!catVisible(n))return;
     const p=pos(n),r=radius(n),c=colors[n.cat]||colors['Другое'];
@@ -265,9 +266,22 @@ function drawNow(now){
     }
     ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
     ctx.strokeStyle=isSel?'#fff':'rgba(255,255,255,0.55)';ctx.lineWidth=isSel?2.5:1;ctx.stroke();
-    ctx.fillStyle='#eaf2ff';
-    ctx.font=`${isSel?'bold ':''}${Math.max(10,Math.min(13,10+n.freq*0.25))}px system-ui`;
-    ctx.textAlign='center';
+    labels.push({n,p,r,isSel,active});
+    ctx.globalAlpha=1;
+  });
+
+  /* подписи без наложений: выбранная тема и важные узлы в приоритете */
+  const placed=[];
+  labels.sort((a,b)=>(b.isSel?1:0)-(a.isSel?1:0)||b.n.freq-a.n.freq);
+  labels.forEach(({n,p,r,isSel,active})=>{
+    const fs=isSel?13:Math.max(W<560?9:10,Math.min(13,10+n.freq*0.25));
+    ctx.font=`${isSel?'bold ':''}${fs}px system-ui`;
+    const w=ctx.measureText(n.name).width,h=fs+2;
+    const box={x:p.x-w/2-4,y:p.y+r+2,w:w+8,h:h+4};
+    if(placed.some(q=>box.x<q.x+q.w&&box.x+box.w>q.x&&box.y<q.y+q.h&&box.y+box.h>q.y))return;
+    placed.push(box);
+    ctx.globalAlpha=active?1:0.13;
+    ctx.fillStyle='#eaf2ff';ctx.textAlign='center';
     ctx.fillText(n.name,p.x,p.y+r+15);
     ctx.globalAlpha=1;
   });
