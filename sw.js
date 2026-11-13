@@ -1,5 +1,5 @@
 /* auto-generated */
-const CACHE='neuro-map-202611131713';
+const CACHE='neuro-map-202611131715';
 const ASSETS=[
  "./",
  "./index.html",
