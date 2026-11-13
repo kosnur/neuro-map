@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Нейронная карта переписки — демо</title>
+<meta name="theme-color" content="#080d18">
+<meta name="description" content="Интерактивная нейронная карта переписки: темы, связи и диалоги.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{--bg:#080d18;--panel:#101a2b;--panel2:#142238;--text:#eaf2ff;--muted:#91a4c1;--line:#263b58;--accent:#71d7ff;--gold:#ffc66d}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{margin:0;background:radial-gradient(ellipse at 50% 20%,#142642 0,#080d18 65%);color:var(--text);font:14px/1.45 Inter,system-ui,Segoe UI,sans-serif}
+body.locked{overflow:hidden}
+header{padding:22px 26px 12px;display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+h1{font-size:clamp(22px,3vw,34px);margin:0;letter-spacing:-.7px}
+header p{color:var(--muted);margin:5px 0 0}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,.filebtn{background:#1a2d48;color:var(--text);border:1px solid #355273;border-radius:10px;padding:9px 13px;cursor:pointer;font:inherit}
+button:hover,.filebtn:hover{background:#254367;border-color:#71d7ff}
+button.primary{background:linear-gradient(135deg,#2b6f9e,#1c4a70);border-color:#71d7ff;font-weight:600}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:14px;padding:12px 18px 18px;height:calc(100vh - 112px);min-height:600px}
+.stage{position:relative;overflow:hidden;border:1px solid #233a57;border-radius:18px;background:radial-gradient(ellipse at center,#10223a 0,#091321 70%);min-height:500px}
+canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+canvas:active{cursor:grabbing}
+.hint{position:absolute;left:14px;bottom:12px;font-size:12px;color:var(--muted);background:#0a1626cc;border:1px solid #223a57;border-radius:9px;padding:6px 10px;pointer-events:none;max-width:calc(100% - 28px)}
+.side{display:flex;flex-direction:column;gap:12px;overflow:auto;scroll-behavior:smooth}
+.panel{flex:0 0 auto;background:linear-gradient(160deg,#14243a,#0e192a);border:1px solid #29415f;border-radius:15px;padding:14px}
+.panel h2{font-size:15px;margin:0 0 10px}
+.muted{color:var(--muted)}
+.search{width:100%;background:#091321;border:1px solid #355273;border-radius:9px;padding:10px;color:white;font:inherit}
+.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.pill{font-size:11px;border:1px solid #355273;border-radius:20px;padding:4px 8px;color:#b9cbe2}
+.detailTitle{font-weight:700;font-size:17px;margin-bottom:5px}
+.metric{color:var(--gold);font-size:12px;margin:6px 0}
+input,textarea,select{width:100%;background:#091321;color:#eaf2ff;border:1px solid #355273;border-radius:8px;padding:9px;font:inherit;margin:4px 0 8px}
+textarea{min-height:65px;resize:vertical}
+label{display:block;color:#bdcbe0;font-size:12px;margin-top:6px}
+.row{display:flex;gap:7px}.row>*{flex:1}
+.small{font-size:11px;color:var(--muted)}
+#nodes{max-height:190px;overflow:auto}
+.nodeitem{padding:6px 8px;border-bottom:1px solid #223650;cursor:pointer}
+.nodeitem:hover{background:#1a2d48}
+.nodeitem.chat{padding-left:20px;font-size:12.5px;color:#c9d8ee}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.stat{background:#0b1727;border:1px solid #243b59;border-radius:9px;padding:8px}
+.stat b{font-size:19px;display:block}
+.stat span{font-size:10px;color:var(--muted)}
+/* подтемы */
+.sublist{max-height:210px;overflow:auto;margin-top:6px;border:1px solid #223650;border-radius:9px;background:#0a1525}
+.subitem{display:flex;gap:8px;align-items:baseline;padding:6px 9px;border-bottom:1px solid #1b2e47;cursor:pointer;font-size:12.5px}
+.subitem:last-child{border-bottom:0}
+.subitem:hover{background:#17304d}
+.subitem.on{background:#1d3a5c;box-shadow:inset 3px 0 0 var(--gold)}
+.subitem .dt{color:var(--muted);font-size:10.5px;white-space:nowrap;min-width:54px}
+/* диалог */
+#dialogPanel{border-color:#4f7fae;box-shadow:0 0 0 1px #71d7ff22,0 10px 30px #0008}
+.dlgHead{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.dlgTitle{font-weight:700;font-size:16px;line-height:1.3}
+.dlgClose{padding:3px 9px;font-size:16px;line-height:1.2;border-radius:8px}
+#dialogBody{max-height:calc(100vh - 290px);min-height:200px;overflow:auto;padding-right:4px}
+.msg{margin:10px 0;padding:10px 12px;border-radius:12px;border:1px solid #2a4261;font-size:13px}
+.msg.u{background:#16304d;border-color:#3b6a99}
+.msg.a{background:#101c2e}
+.msg .who{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent);margin-bottom:4px}
+.msg.a .who{color:var(--gold)}
+.msg .txt{white-space:pre-wrap;word-break:break-word}
+.msg code{background:#0a1525;border-radius:4px;padding:0 4px;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+.note{font-size:11px;color:var(--muted);text-align:center;margin:8px 0 2px}
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#203c5e;border:1px solid #5a8dbb;padding:10px 15px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none;z-index:90;max-width:calc(100vw - 30px);text-align:center}
+/* фильтры */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
+.chip{display:flex;align-items:center;gap:6px;padding:6px 9px;border-radius:99px;font-size:11.5px;background:#0b1727;border:1px solid #355273;color:#cfe0f5}
+.chip span{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chip.off{opacity:.35;text-decoration:line-through}
+#activity{display:block;width:100%;margin-top:8px;border:1px solid #223650;border-radius:8px;background:#0a1525}
+/* вход */
+#login{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;background:radial-gradient(ellipse at 50% 20%,#142642 0,#080d18 65%)}
+.loginCard{width:min(380px,100%);background:linear-gradient(160deg,#14243a,#0e192a);border:1px solid #355273;border-radius:20px;padding:28px;box-shadow:0 20px 60px #000a}
+.loginCard h2{margin:6px 0 4px;font-size:22px;letter-spacing:-.4px}
+.loginCard p{margin:0 0 16px;font-size:12.5px}
+.loginLogo{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#2b6f9e,#0b1727);border:1px solid #71d7ff66;font-size:26px;box-shadow:0 0 28px #71d7ff33}
+.loginCard input{margin:0 0 4px;padding:12px}
+.loginCard button{width:100%;margin-top:10px;padding:12px}
+.check{display:flex;align-items:center;gap:8px;margin:10px 0;color:#bdcbe0;font-size:12px}
+.check input{width:auto;margin:0}
+.loginError{color:#ff9d9d;background:#3a1620;border:1px solid #7d3344;border-radius:8px;padding:8px 10px;font-size:12px;margin-top:12px}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.shake{animation:shake .38s ease}
+/* мобильное окно диалога */
+.sheetHandle{display:none}
+#sheetBackdrop{position:fixed;inset:0;background:#000a;z-index:25;backdrop-filter:blur(2px)}
+@media(max-width:900px){
+ .layout{grid-template-columns:1fr;height:auto;padding-bottom:24px}
+ .stage{height:62vh;min-height:420px}
+ #dialogPanel{position:fixed;left:0;right:0;bottom:0;z-index:30;max-height:82vh;border-radius:18px 18px 0 0;transform:translateY(105%);transition:transform .25s ease;display:flex;flex-direction:column;padding-top:10px}
+ #dialogPanel.open{transform:translateY(0)}
+ #dialogBody{max-height:60vh;flex:1;min-height:0}
+ .sheetHandle{display:block;width:48px;height:5px;border-radius:99px;background:#4a6a8e;margin:0 auto 10px;touch-action:none;cursor:grab}
+ body.sheet-open{overflow:hidden}
+}
+@media(max-width:560px){
+ header{padding:17px}
+ .layout{padding:8px}
+ .stage{height:55vh;min-height:380px}
+ .actions button,.actions .filebtn{padding:8px 10px;font-size:13px}
+ .stats{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="login" hidden>
+ <form id="loginForm" class="loginCard" autocomplete="on">
+  <div class="loginLogo">◉</div>
+  <h2>Нейронная карта</h2>
+  <p class="muted">Введите пароль, чтобы расшифровать переписку. Данные расшифровываются только на этом устройстве.</p>
+  <input id="loginPass" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Пароль" required>
+  <label class="check"><input id="loginRemember" type="checkbox" checked> Запомнить на этом устройстве</label>
+  <button type="submit" class="primary">Открыть карту</button>
+  <div id="loginError" class="loginError" hidden></div>
+ </form>
+</div>
+
+<header>
+ <div><h1>Нейронная карта переписки — демо</h1><p>Интерактивный граф тем · демо без личных диалогов · импортируйте свой экспорт ChatGPT</p></div>
+ <div class="actions">
+  <label class="filebtn" style="margin:0">Импорт истории<input id="file" type="file" accept=".json" multiple hidden></label>
+  <button id="addToggle">＋ Узел</button>
+  <button id="png">PNG</button>
+  <button id="export">Экспорт</button>
+  <button id="reset">Сброс</button>
+  <button id="installBtn" hidden>Установить</button>
+ </div>
+</header>
+<div class="layout">
+ <main class="stage"><canvas id="graph"></canvas><div class="hint">Клик по теме → загорятся связи и выдвинутся чаты. Клик по кружку → откроется диалог. Колесо мыши или щипок двумя пальцами — масштаб.</div></main>
+ <div id="sheetBackdrop" hidden></div>
+ <aside class="side" id="side">
+  <section class="panel" id="dialogPanel" hidden>
+   <div class="sheetHandle" id="sheetHandle"></div>
+   <div class="dlgHead"><div><div class="dlgTitle" id="dlgTitle"></div><div class="small" id="dlgMeta"></div></div><button class="dlgClose" id="dlgClose" title="Закрыть диалог">×</button></div>
+   <div id="dialogBody"></div>
+  </section>
+  <section class="panel">
+   <h2>Обзор карты</h2>
+   <div class="stats"><div class="stat"><b id="countN">0</b><span>узлов</span></div><div class="stat"><b id="countE">0</b><span>связей</span></div><div class="stat"><b id="countC">0</b><span>категорий</span></div><div class="stat"><b id="countS">0</b><span>подтем-чатов</span></div></div>
+   <canvas id="activity"></canvas>
+   <div class="legend"><span class="pill">Размер = частота</span><span class="pill">Свечение = сила темы</span><span class="pill">Линии = связи</span><span class="pill">Малые кружки = чаты</span></div>
+   <p class="small">Перетаскивай узлы и фон, колесо мыши — масштаб. Esc — снять выделение.</p>
+   <p style="margin-bottom:0"><button id="resetEdits">Сбросить мои правки</button></p>
+  </section>
+  <section class="panel" id="filterPanel">
+   <h2>Фильтры</h2>
+   <div class="chips" id="catChips"></div>
+   <label>Год чатов</label>
+   <select id="yearFilter"><option value="all">Все годы</option></select>
+  </section>
+  <section class="panel">
+   <h2>Поиск по карте</h2><input class="search" id="search" placeholder="Тема или название чата: физика, Windows, Кулон…">
+   <div id="nodes"></div>
+  </section>
+  <section class="panel" id="details"><h2>Карточка узла</h2><p class="muted">Выбери нейрон на карте, чтобы увидеть его связи, период, описание и список подтем-чатов.</p></section>
+  <section class="panel" id="addPanel" hidden>
+   <h2>Новый нейрон</h2>
+   <label>Название</label><input id="newName" placeholder="Например: Квантовая механика">
+   <div class="row"><div><label>Категория</label><select id="newCat"><option>Образование</option><option>Разработка</option><option>Техника</option><option>Игры</option><option>Быт</option><option>Аниме</option><option>Другое</option></select></div><div><label>Повторяемость (1–10)</label><input id="newFreq" type="number" min="1" max="10" value="3"></div></div>
+   <label>Описание / заметка</label><textarea id="newDesc" placeholder="Что обсуждали?"></textarea>
+   <label>Дата или период</label><input id="newDate" placeholder="Например: 2026">
+   <label>Связать с узлами (названия через запятую)</label><input id="newLinks" placeholder="Физика, Python">
+   <button id="saveNode">Сохранить узел</button>
+  </section>
+  <section class="panel">
+   <h2>О карте</h2>
+   <p class="small">Демонстрационная версия карты: личные диалоги автора не включены. Нажмите «Импорт истории» и выберите файлы conversations-*.json из экспорта ChatGPT — карта построится уже из ваших чатов. Импорт и правки сохраняются только в вашем браузере.</p>
+  </section>
+ </aside>
+</div>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
